@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+from pathlib import Path
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.prompt import Prompt, IntPrompt
@@ -13,6 +14,7 @@ from src.sleeper_client import SleeperClient
 from src.league_analyzer import LeagueAnalyzer
 from src.player_scorer import PlayerScorer
 from src.waiver_recommender import WaiverRecommender
+from src.scoring_manager import ScoringManager
 
 console = Console()
 
@@ -26,10 +28,24 @@ def main():
                        help='Filter by position')
     parser.add_argument('--top', type=int, default=15, help='Number of recommendations (default: 15)')
     parser.add_argument('--clear-cache', action='store_true', help='Clear the cache before running')
+    parser.add_argument('--scoring', type=str, choices=['standard', 'ppr', 'half_ppr', 'superflex', 'dynasty'],
+                       help='Scoring system preset (default: uses league settings)')
+    parser.add_argument('--list-scoring', action='store_true', help='List available scoring presets')
+    parser.add_argument('--save-scoring', action='store_true', help='Save current league scoring as custom')
     
     args = parser.parse_args()
     
     load_dotenv()
+    
+    # Initialize scoring manager
+    scoring_manager = ScoringManager()
+    
+    # Handle scoring-related arguments
+    if args.list_scoring:
+        console.print(Panel("[bold cyan]Available Scoring Presets[/bold cyan]", box=box.DOUBLE))
+        for preset_name, description in scoring_manager.list_presets().items():
+            console.print(f"  [bold]{preset_name}[/bold]: {description}")
+        sys.exit(0)
     
     league_id = args.league_id or os.getenv('LEAGUE_ID')
     season = args.season or int(os.getenv('SEASON', 2024))
@@ -82,7 +98,35 @@ def main():
         transactions = client.get_transactions(league_id, week)
     
     analyzer = LeagueAnalyzer(league, rosters, users, all_players)
-    scorer = PlayerScorer(league.get('scoring_settings', {}))
+    
+    # Get scoring settings (custom, preset, or league default)
+    scoring_settings = scoring_manager.get_scoring_settings(
+        preset_name=args.scoring,
+        league_settings=league.get('scoring_settings', {}),
+        use_league_settings=(not args.scoring)  # Use league settings if no preset specified
+    )
+    
+    # Save scoring settings if requested
+    if args.save_scoring:
+        scoring_manager.save_custom_scoring(scoring_settings, name="custom")
+        console.print("[green]League scoring settings saved as custom. They will be used automatically in future runs.[/green]")
+    
+    # Display which scoring system is being used
+    if args.scoring:
+        console.print(f"[cyan]Using {args.scoring} scoring preset[/cyan]")
+    elif Path("./.env.scoring.json").exists():
+        console.print("[cyan]Using custom scoring settings from .env.scoring.json[/cyan]")
+    else:
+        # Try to detect scoring type
+        pts_rec = scoring_settings.get('pts_rec', 0)
+        if pts_rec == 1:
+            console.print("[cyan]Using PPR scoring (detected from league settings)[/cyan]")
+        elif pts_rec == 0.5:
+            console.print("[cyan]Using Half-PPR scoring (detected from league settings)[/cyan]")
+        else:
+            console.print("[cyan]Using league default scoring settings[/cyan]")
+    
+    scorer = PlayerScorer(scoring_settings)
     recommender = WaiverRecommender(analyzer, scorer)
     
     if args.user:

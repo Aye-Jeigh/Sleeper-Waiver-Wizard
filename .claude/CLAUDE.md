@@ -16,19 +16,25 @@ A Python tool that analyzes Sleeper fantasy football leagues and provides intell
 ## Project Structure
 ```
 /
-├── main.py                  # Entry point, CLI argument parsing, orchestration
-├── requirements.txt         # Python dependencies
-├── README.md               # User documentation
-├── .gitignore              # Standard Python gitignore
-├── .env                    # Environment variables (not in repo)
-├── cache/                  # Disk cache storage (auto-created)
-├── data/                   # Data storage directory
-├── config/                 # Configuration directory (currently empty)
+├── main.py                     # Entry point, CLI argument parsing, orchestration
+├── requirements.txt            # Python dependencies
+├── README.md                  # User documentation
+├── .gitignore                 # Standard Python gitignore
+├── .env                       # Environment variables (not in repo)
+├── .env.example               # Example environment configuration
+├── .env.scoring.json          # Custom scoring settings (auto-created)
+├── cache/                     # Disk cache storage (auto-created)
+├── data/                      # Data storage directory
+├── config/
+│   └── scoring_settings.json  # Scoring system presets
+├── examples/
+│   └── scoring_examples.md    # Scoring usage examples
 └── src/
-    ├── sleeper_client.py       # Sleeper API client with caching
-    ├── league_analyzer.py      # League data analysis logic
-    ├── player_scorer.py        # Player scoring algorithm
-    └── waiver_recommender.py   # Recommendation generation and display
+    ├── sleeper_client.py          # Sleeper API client with caching
+    ├── league_analyzer.py         # League data analysis logic
+    ├── player_scorer.py           # Player scoring algorithm
+    ├── waiver_recommender.py      # Recommendation generation and display
+    └── scoring_manager.py         # Scoring system management
 ```
 
 ## Key Components
@@ -65,6 +71,13 @@ A Python tool that analyzes Sleeper fantasy football leagues and provides intell
 - Rich terminal display with tables
 - Shows trending players and recent transactions
 
+### 5. ScoringManager (`src/scoring_manager.py`)
+- Manages multiple scoring systems (Standard, PPR, Half-PPR, Superflex, Dynasty)
+- Auto-detects league scoring from Sleeper API
+- Supports custom scoring configurations
+- Priority: Custom file > Preset > League settings > Default
+- Preset configurations stored in `config/scoring_settings.json`
+
 ## Configuration
 
 ### Environment Variables (.env)
@@ -82,6 +95,37 @@ CURRENT_WEEK=1
 - `--position`: Filter by position (QB, RB, WR, TE, K, DEF)
 - `--top`: Number of recommendations (default: 15)
 - `--clear-cache`: Clear cache before running
+- `--scoring`: Use scoring preset (standard, ppr, half_ppr, superflex, dynasty)
+- `--list-scoring`: List available scoring presets
+- `--save-scoring`: Save league scoring as custom settings
+
+### Scoring System Configuration
+The tool supports multiple scoring systems with automatic detection:
+
+**Built-in Presets:**
+- `standard`: Traditional scoring (0 PPR)
+- `ppr`: Full point per reception
+- `half_ppr`: Half point per reception
+- `superflex`: 6-point passing TDs for 2QB leagues
+- `dynasty`: PPR with TE premium (1.5 pts/rec for TEs)
+
+**Configuration Priority:**
+1. `.env.scoring.json` file (custom settings)
+2. `--scoring` command line argument
+3. League settings from Sleeper API
+4. Default to standard scoring
+
+**Usage Examples:**
+```bash
+# Use PPR scoring
+python main.py --scoring ppr
+
+# List all presets
+python main.py --list-scoring
+
+# Save league settings as custom
+python main.py --save-scoring
+```
 
 ## API Endpoints Used
 - `/league/{league_id}` - League settings
@@ -125,6 +169,7 @@ python main.py
    - API calls through `SleeperClient`
    - Data processing in `LeagueAnalyzer`
    - Scoring logic in `PlayerScorer`
+   - Scoring system management in `ScoringManager`
    - Display logic in `WaiverRecommender`
 
 ### Debugging
@@ -140,16 +185,34 @@ python main.py
 - No automated tests
 - No logging framework (uses print statements)
 
+## Recent Updates
+
+### Scoring System Enhancement (Latest)
+- Added comprehensive scoring system support
+- 5 built-in presets: standard, ppr, half_ppr, superflex, dynasty
+- Auto-detection of league scoring from Sleeper API
+- Custom scoring configuration support
+- Priority-based scoring selection system
+- Command line options for scoring management
+
+### Files Added:
+- `src/scoring_manager.py` - Core scoring management
+- `config/scoring_settings.json` - Preset configurations
+- `.env.example` - Example environment setup
+- `examples/scoring_examples.md` - Usage documentation
+
 ## Future Enhancements
 Consider implementing:
 - Logging framework for better debugging
 - Unit tests for core logic
-- Configuration file support
-- Database storage option
-- Web interface
+- Database storage option (SQLite/PostgreSQL)
+- Web interface (Flask/FastAPI dashboard)
 - Advanced analytics (strength of schedule, matchup analysis)
-- Trade recommendations
+- Trade recommendations and analyzer
 - Automated lineup optimization
+- Multi-platform support (ESPN, Yahoo)
+- Machine learning player prediction models
+- Mobile app with REST API
 
 ## Dependencies Security
 All dependencies use stable versions. Run `pip list --outdated` periodically to check for updates.
